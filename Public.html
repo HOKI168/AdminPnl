@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOKI168 - Spin Game (Cloud)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        /* CSS tidak berubah, sama seperti kode sebelumnya */
+        body { margin: 0; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle at center, #3d1f6d 0%, #1a0b2e 60%, #080412 100%); }
+        .game-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        .wheel-container { position: relative; width: 320px; height: 320px; margin-bottom: 0; }
+        .pointer { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #FFD700; z-index: 20; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5)); }
+        #wheel { width: 100%; height: 100%; border-radius: 50%; border: 8px solid #FFD700; box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); transition: transform 5s cubic-bezier(0.15, 0.8, 0.2, 1); }
+        .center-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75px; height: 75px; border-radius: 50%; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; z-index: 15; border: 2px solid #FFD700; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
+        .center-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .controls-container { margin-top: 50px; text-align: center; width: 300px; }
+        input { width: 100%; padding: 14px; border-radius: 25px; border: 2px solid #FFD700; background: rgba(0,0,0,0.8); color: white; text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 16px; outline: none; box-sizing: border-box; }
+        input::placeholder { color: #aaa; }
+        button { background: linear-gradient(45deg, #FFD700, #FFA500); border: none; padding: 15px 60px; font-size: 20px; font-weight: bold; border-radius: 30px; cursor: pointer; color: black; box-shadow: 0 5px 15px rgba(255, 215, 0, 0.5); transition: 0.2s; text-transform: uppercase; width: 100%; }
+        button:hover { transform: scale(1.02); box-shadow: 0 8px 20px rgba(255, 215, 0, 0.6); }
+        button:disabled { background: #555; color: #fff; cursor: not-allowed; transform: none; box-shadow: none; }
+        .result { margin-top: 20px; font-size: 20px; font-weight: bold; color: #fff; min-height: 30px; text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+        .particle { position: fixed; width: 4px; height: 4px; background: gold; border-radius: 50%; animation: floatUp 5s linear infinite; opacity: 0; pointer-events: none; }
+        @keyframes floatUp { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-100vh) scale(1); opacity: 0; } }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 999; }
+        .modal-content { background: linear-gradient(145deg, #2b2b2b, #1a1a1a); border: 2px solid #FFD700; border-radius: 15px; padding: 30px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); position: relative; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .modal-title { color: #FFD700; font-size: 28px; font-weight: 800; margin-bottom: 10px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+        .modal-subtitle { color: white; font-size: 16px; margin-bottom: 5px; }
+        .modal-prize { color: #00ff80; font-size: 32px; font-weight: 800; margin-bottom: 5px; text-transform: uppercase; }
+        .modal-label { color: #aaa; font-size: 12px; margin-top: 15px; margin-bottom: 5px; }
+        .modal-code-box { background: rgba(255, 215, 0, 0.1); border: 1px solid #FFD700; color: #FFD700; padding: 10px; font-size: 20px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; font-family: monospace; letter-spacing: 2px; }
+        .btn-claim { display: block; width: 100%; padding: 12px; background: #25D366; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px; transition: 0.3s; }
+        .btn-claim:hover { background: #128C7E; }
+        .share-section { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; }
+        .share-section p { color: #888; font-size: 12px; margin-bottom: 10px; }
+        .social-icons a { display: inline-block; width: 45px; height: 45px; line-height: 45px; margin: 0 5px; border-radius: 50%; color: white; font-size: 20px; transition: 0.3s; }
+        .social-icons a:hover { transform: scale(1.2); }
+        .bg-tg { background: #0088cc; }.bg-meta { background: #0668E1; }.bg-wa { background: #25D366; }
+        .btn-close-modal { margin-top: 15px; background: transparent; border: 1px solid #666; color: #aaa; padding: 8px 20px; border-radius: 5px; font-size: 12px; cursor: pointer; width: auto; }
+    </style>
+</head>
+<body>
+   <audio id="audioPlayer" preload="auto" loop>
+        <source src="1 minute of wii theme song (mp3cut.net).mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="prizeSound" preload="auto">
+        <source src="Roblox Death Sound (Oof) - Sound Effect (HD) (mp3cut.net).mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="particles"></div>
+    <div class="game-wrapper">
+        <div class="wheel-container">
+            <div class="pointer"></div>
+            <canvas id="wheel" width="320" height="320"></canvas>
+            <div class="center-logo">
+                <img src="https://z-cdn-media.chatglm.cn/files/d5d63a1b-f93e-4a98-8340-6b1fa0895f1e.png?auth_key=1872538385-487952d6b6d64224b4beda50b1d54ed1-0-0ac458bc6a51096c156bf090223eda28" alt="Logo">
+            </div>
+        </div>
+        <div class="controls-container">
+            <input type="text" id="ticket-input" placeholder="Masukkan Kode Tiket">
+            <button id="spin-btn" onclick="startSpin()">SPIN</button>
+            <div class="result" id="result-display"></div>
+        </div>
+    </div>
+
+    <!-- POP UP -->
+    <div class="modal-overlay" id="win-modal">
+        <div class="modal-content">
+            <div class="modal-title">SELAMAT!</div>
+            <div class="modal-subtitle">ANDA MEMENANGKAN HADIAH</div>
+            <div class="modal-prize" id="modal-prize-text">10.000 CREDIT!</div>
+            <div class="modal-label">CATAT Kode Kemenangan Anda:</div>
+            <div class="modal-code-box" id="modal-win-code">XXXXXX</div>
+            <a href="#" class="btn-claim" target="_blank"><i class="fab fa-whatsapp"></i> Klaim Melalui: WhatsApp</a>
+            <div class="share-section">
+                <p>Bagikan ke:</p>
+                <div class="social-icons">
+                    <a href="#" class="bg-tg" title="Telegram"><i class="fab fa-telegram"></i></a>
+                    <a href="#" class="bg-meta" title="Meta Business"><i class="fab fa-meta"></i></a>
+                    <a href="#" class="bg-wa" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                </div>
+            </div>
+            <button class="btn-close-modal" onclick="closeModal()">TUTUP</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== KONFIGURASI FIREBASE ====================
+        // GANTI DENGAN KONFIGURASI MILIK ANDA (SAMA PERSIS DENGAN ADMIN)
+       const firebaseConfig = {
+        apiKey: "AIzaSyD2bVSPx3_9s4lun0JTcbkILVEBgDobQGA",
+        authDomain: "wheelfortunehoki168.firebaseapp.com",
+        databaseURL: "https://wheelfortunehoki168-default-rtdb.firebaseio.com",
+        projectId: "wheelfortunehoki168",
+        storageBucket: "wheelfortunehoki168.firebasestorage.app",
+        messagingSenderId: "985887787024",
+        appId: "1:985887787024:web:66c94bf9d4f2d59329e295"
+
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const audio = document.getElementById('audioPlayer');
+        const prizeSound = document.getElementById('prizeSound');
+        
+        audio.volume = 1.;
+        prizeSound.volume = 0.7;
+
+        document.addEventListener('click', function autoPlay() {
+            audio.play().catch(e => console.log('Background audio not played:', e));
+            document.removeEventListener('click', autoPlay);
+        }, { once: true });
+
+
+
+        // DATA HADIAH
+        const prizes = [
+            { value: 5000, label: "5.000" }, { value: 10000, label: "10.000" }, { value: 15000, label: "15.000" },
+            { value: 20000, label: "20.000" }, { value: 50000, label: "50.000" }, { value: 100000, label: "100.000" },
+            { value: 200000, label: "200.000" }, { value: 500000, label: "500.000" }, { value: 1000000, label: "1.000.000" },
+            { value: 3000000, label: "3.000.000" }
+        ];
+        const colors = ["#FFD700", "#E0E0E0", "#FF69B4", "#E5E4E2", "#FFD700", "#E0E0E0", "#FF69B4", "#E5E4E2", "#FFD700", "#E0E0E0"];
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const angleStep = 360 / prizes.length;
+
+        function drawWheel() {
+            const centerX = canvas.width / 2; const centerY = canvas.height / 2; const radius = canvas.width / 2;
+            prizes.forEach((p, i) => {
+                const startAngle = (i * angleStep) * Math.PI / 180; const endAngle = ((i + 1) * angleStep) * Math.PI / 180;
+                ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.fillStyle = colors[i]; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = "#333"; ctx.stroke();
+                ctx.save(); ctx.translate(centerX, centerY); ctx.rotate((i * angleStep + angleStep / 2) * Math.PI / 180);
+                ctx.textAlign = "right"; ctx.fillStyle = "#000"; ctx.font = "bold 18px Arial";
+                ctx.shadowColor = "rgba(255,255,255,0.5)"; ctx.shadowBlur = 2; ctx.fillText(p.label, radius - 20, 5); ctx.restore();
+            });
+        }
+        drawWheel();
+
+        // LOGICA SPIN
+        async function startSpin() { // Jadikan async untuk menunggu database
+            const input = document.getElementById('ticket-input').value.toUpperCase();
+            const btn = document.getElementById('spin-btn');
+            const display = document.getElementById('result-display');
+            
+            if (!input) { alert("Masukkan kode tiket!"); return; }
+
+            btn.disabled = true;
+            display.innerText = "Mengecek kode...";
+            display.style.color = "white";
+
+            // 1. Ambil Data Dari Firebase
+            const snapshot = await db.ref('tickets').orderByChild('code').equalTo(input).once('value');
+            const data = snapshot.val();
+
+            if (!data) {
+                display.innerText = "Kode Tidak Valid!";
+                display.style.color = "red";
+                btn.disabled = false;
+                return;
+            }
+
+            // Ambil key dan value pertama (karena unik)
+            const key = Object.keys(data)[0];
+            const ticketData = data[key];
+
+            if(ticketData.status === 'used') {
+                display.innerText = "Kode Sudah Digunakan!";
+                display.style.color = "orange";
+                btn.disabled = false;
+                return;
+            }
+
+            // 2. Jika Kode Valid -> Putar Roda
+            const prizeIndex = prizes.findIndex(p => p.value === ticketData.prize);
+            if (prizeIndex === -1) { alert("Error data hadiah."); btn.disabled = false; return; }
+
+            // 3. Update Status di Firebase SEBELUM putar (atau setelah, terserah)
+            // Lebih aman update status sekarang agar tidak double spin
+            const nowTime = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+            db.ref('tickets/' + key).update({ status: 'used', used_at: nowTime });
+
+            // Logika Putar Roda
+            const wheelElement = document.getElementById('wheel');
+            wheelElement.style.transition = 'none';
+            wheelElement.style.transform = 'rotate(0deg)';
+            void wheelElement.offsetWidth;
+
+            const targetDegree = 270 - (prizeIndex * 36 + 18);
+            const totalRotation = 360 * 10 + targetDegree;
+
+            wheelElement.style.transition = 'transform 5s cubic-bezier(0.15, 0.8, 0.2, 1)';
+            wheelElement.style.transform = `rotate(${totalRotation}deg)`;
+
+            display.innerText = "Memutar...";
+
+            setTimeout(() => {
+                display.innerText = ""; 
+                const winPrizeData = prizes[prizeIndex];
+                document.getElementById('modal-prize-text').innerText = winPrizeData.label + " CREDIT!";
+                const winCode = 'WIN-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                document.getElementById('modal-win-code').innerText = winCode;
+                document.getElementById('win-modal').style.display = 'flex';
+                btn.disabled = false;
+            }, 5000);
+        }
+
+        function closeModal() { document.getElementById('win-modal').style.display = 'none'; }
+
+        // Partikel
+        const pCont = document.getElementById('particles');
+        for(let i=0; i<20; i++) {
+            let p = document.createElement('div'); p.className = 'particle';
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.animationDelay = Math.random() * 5 + 's';
+            p.style.animationDuration = (Math.random() * 3 + 4) + 's';
+            pCont.appendChild(p);
+        }
+    </script>
+</body>
+</html>
